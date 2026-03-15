@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RemoteLink</string>
+    <string name="accessibility_service_label">RemoteLink Control</string>
+    <string name="accessibility_service_description">Дозволяє RemoteLink виконувати дотики та жести на екрані для дистанційного керування</string>
+    <string name="btn_host">Хост</string>
+    <string name="btn_client">Клієнт</string>
+    <string name="host_subtitle">Цей пристрій буде відображатись і ним керуватимуть</string>
+    <string name="client_subtitle">Цей пристрій керує іншим</string>
+    <string name="waiting_connection">Очікування підключення…</string>
+    <string name="searching_host">Пошук хоста в мережі…</string>
+    <string name="connected">Підключено</string>
+    <string name="disconnected">Відключено</string>
+    <string name="stop">Зупинити</string>
+    <string name="notification_channel">RemoteLink</string>
+    <string name="notification_host_title">RemoteLink — Хост активний</string>
+    <string name="notification_host_text">Пристрій транслює екран</string>
+    <string name="port_label">Порт</string>
+    <string name="quality_label">Якість зображення</string>
+    <string name="fps_label">FPS</string>
+</resources>

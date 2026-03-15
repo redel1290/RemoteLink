@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.RemoteLink" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#6C63FF</item>
+        <item name="colorPrimaryVariant">#4B44CC</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSurface">#1E1E2E</item>
+        <item name="colorOnSurface">#FFFFFF</item>
+        <item name="android:windowBackground">#121220</item>
+        <item name="android:statusBarColor">#121220</item>
+        <item name="android:navigationBarColor">#121220</item>
+    </style>
+</resources>
