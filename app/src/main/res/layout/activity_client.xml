@@ -60,7 +60,7 @@
         android:layout_height="44dp"
         android:text="Відключитись"
         android:textColor="#FFFFFF"
-        android:backgroundTint="#AA FF5555"
+        android:backgroundTint="#AAFF5555"
         android:alpha="0.8"
         android:stateListAnimator="@null"
         style="@style/Widget.MaterialComponents.Button"
