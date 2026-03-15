@@ -73,9 +73,11 @@ class ClientActivity : AppCompatActivity() {
         }
 
         connection.onFrame = { jpegBytes ->
-            val bitmap = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size) ?: return@onFrame
-            mainScope.launch {
-                binding.ivScreen.setImageBitmap(bitmap)
+            val bitmap = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
+            if (bitmap != null) {
+                mainScope.launch {
+                    binding.ivScreen.setImageBitmap(bitmap)
+                }
             }
         }
 

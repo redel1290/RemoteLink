@@ -79,22 +79,23 @@ class HostActivity : AppCompatActivity() {
             }
         }
         hostServer.onTouchEvent = { event ->
-            val accessibility = AccessibilityControlService.instance ?: return@onTouchEvent
-            // Конвертуємо координати клієнта в координати хоста
-            val scaleX = resources.displayMetrics.widthPixels.toFloat() / event.screenWidth
-            val scaleY = resources.displayMetrics.heightPixels.toFloat() / event.screenHeight
-            val rx = event.x * scaleX
-            val ry = event.y * scaleY
-            val rx2 = event.x2 * scaleX
-            val ry2 = event.y2 * scaleY
+            val accessibility = AccessibilityControlService.instance
+            if (accessibility != null) {
+                val scaleX = resources.displayMetrics.widthPixels.toFloat() / event.screenWidth
+                val scaleY = resources.displayMetrics.heightPixels.toFloat() / event.screenHeight
+                val rx = event.x * scaleX
+                val ry = event.y * scaleY
+                val rx2 = event.x2 * scaleX
+                val ry2 = event.y2 * scaleY
 
-            when (event.type) {
-                "tap"       -> accessibility.performTap(rx, ry)
-                "swipe"     -> accessibility.performSwipe(rx, ry, rx2, ry2)
-                "longpress" -> accessibility.performLongPress(rx, ry)
-                "back"      -> accessibility.performBack()
-                "home"      -> accessibility.performHome()
-                "recents"   -> accessibility.performRecents()
+                when (event.type) {
+                    "tap"       -> accessibility.performTap(rx, ry)
+                    "swipe"     -> accessibility.performSwipe(rx, ry, rx2, ry2)
+                    "longpress" -> accessibility.performLongPress(rx, ry)
+                    "back"      -> accessibility.performBack()
+                    "home"      -> accessibility.performHome()
+                    "recents"   -> accessibility.performRecents()
+                }
             }
         }
         hostServer.start()
