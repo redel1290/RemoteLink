@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
@@ -13,6 +14,7 @@ import android.hardware.display.VirtualDisplay
 import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.IBinder
 import android.util.DisplayMetrics
 import android.view.WindowManager
@@ -44,12 +46,22 @@ class ScreenCaptureService : Service() {
         super.onCreate()
         instance = this
         createNotificationChannel()
+        // Запускаємо foreground одразу в onCreate — обов'язково для Android 14+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NetworkConfig.NOTIFICATION_ID,
+                buildNotification(),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            )
+        } else {
+            startForeground(NetworkConfig.NOTIFICATION_ID, buildNotification())
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_START) {
-            startForeground(NetworkConfig.NOTIFICATION_ID, buildNotification())
             val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, -1)
+            @Suppress("DEPRECATION")
             val resultData = intent.getParcelableExtra<Intent>(EXTRA_RESULT_DATA)
             if (resultData != null) {
                 startCapture(resultCode, resultData)
