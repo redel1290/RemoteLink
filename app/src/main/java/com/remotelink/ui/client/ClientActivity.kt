@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GestureDetectorCompat
 import com.remotelink.databinding.ActivityClientBinding
@@ -19,13 +20,8 @@ class ClientActivity : AppCompatActivity() {
     private val mainScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private lateinit var gestureDetector: GestureDetectorCompat
 
-    // Розміри екрану клієнта — для масштабування координат
     private var viewWidth = 0
     private var viewHeight = 0
-
-    // Координати початку свайпу
-    private var swipeStartX = 0f
-    private var swipeStartY = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,11 +31,27 @@ class ClientActivity : AppCompatActivity() {
         setupGestures()
         setupConnection()
 
-        binding.btnDisconnect.setOnClickListener {
-            finish()
+        binding.btnConnect.setOnClickListener {
+            val code = binding.etCode.text.toString().trim()
+            if (code.length != 6) {
+                binding.tvCodeError.text = "Введи рівно 6 цифр"
+                return@setOnClickListener
+            }
+            binding.tvCodeError.text = ""
+            // Ховаємо клавіатуру
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(binding.etCode.windowToken, 0)
+            // Показуємо статус пошуку
+            binding.layoutStatus.visibility = View.VISIBLE
+            binding.tvStatus.text = "🔍 Пошук хоста з кодом $code…"
+            binding.tvStatusDetail.text = "Переконайся що хост активний"
+            binding.btnConnect.isEnabled = false
+
+            connection.connectWithCode(code)
         }
 
-        // Отримуємо розміри ImageView після рендеру
+        binding.btnDisconnect.setOnClickListener { finish() }
+
         binding.ivScreen.post {
             viewWidth = binding.ivScreen.width
             viewHeight = binding.ivScreen.height
@@ -47,28 +59,35 @@ class ClientActivity : AppCompatActivity() {
     }
 
     private fun setupConnection() {
-        connection.onSearching = {
-            mainScope.launch {
-                binding.layoutStatus.visibility = View.VISIBLE
-                binding.tvStatus.text = "🔍 Пошук хоста в мережі…"
-                binding.tvStatusDetail.text = "Переконайся що хост активний"
-                binding.btnDisconnect.visibility = View.GONE
-            }
-        }
-
         connection.onConnected = {
             mainScope.launch {
+                binding.layoutCodeInput.visibility = View.GONE
                 binding.layoutStatus.visibility = View.GONE
                 binding.btnDisconnect.visibility = View.VISIBLE
             }
         }
 
+        connection.onWrongCode = {
+            mainScope.launch {
+                binding.layoutStatus.visibility = View.GONE
+                binding.tvCodeError.text = "❌ Невірний код, спробуй ще раз"
+                binding.btnConnect.isEnabled = true
+            }
+        }
+
         connection.onDisconnected = {
             mainScope.launch {
-                binding.layoutStatus.visibility = View.VISIBLE
-                binding.tvStatus.text = "❌ З'єднання втрачено"
-                binding.tvStatusDetail.text = "Спробуй знову"
-                binding.btnDisconnect.visibility = View.GONE
+                if (binding.layoutCodeInput.visibility == View.GONE) {
+                    // Якщо вже були підключені — показуємо повідомлення
+                    binding.layoutCodeInput.visibility = View.VISIBLE
+                    binding.tvCodeError.text = "❌ З'єднання втрачено"
+                    binding.btnConnect.isEnabled = true
+                    binding.btnDisconnect.visibility = View.GONE
+                } else {
+                    binding.layoutStatus.visibility = View.GONE
+                    binding.tvCodeError.text = "❌ Хост не знайдено. Перевір код і мережу"
+                    binding.btnConnect.isEnabled = true
+                }
             }
         }
 
@@ -80,41 +99,20 @@ class ClientActivity : AppCompatActivity() {
                 }
             }
         }
-
-        connection.startDiscovery()
     }
 
     private fun setupGestures() {
         gestureDetector = GestureDetectorCompat(this, object : GestureDetector.SimpleOnGestureListener() {
-
             override fun onSingleTapUp(e: MotionEvent): Boolean {
-                sendEvent(HostServer.TouchEvent(
-                    type = "tap",
-                    x = e.x, y = e.y,
-                    screenWidth = viewWidth, screenHeight = viewHeight
-                ))
+                sendEvent(HostServer.TouchEvent("tap", e.x, e.y, screenWidth = viewWidth, screenHeight = viewHeight))
                 return true
             }
-
             override fun onLongPress(e: MotionEvent) {
-                sendEvent(HostServer.TouchEvent(
-                    type = "longpress",
-                    x = e.x, y = e.y,
-                    screenWidth = viewWidth, screenHeight = viewHeight
-                ))
+                sendEvent(HostServer.TouchEvent("longpress", e.x, e.y, screenWidth = viewWidth, screenHeight = viewHeight))
             }
-
-            override fun onFling(
-                e1: MotionEvent?, e2: MotionEvent,
-                velocityX: Float, velocityY: Float
-            ): Boolean {
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, vX: Float, vY: Float): Boolean {
                 val start = e1 ?: return false
-                sendEvent(HostServer.TouchEvent(
-                    type = "swipe",
-                    x = start.x, y = start.y,
-                    x2 = e2.x, y2 = e2.y,
-                    screenWidth = viewWidth, screenHeight = viewHeight
-                ))
+                sendEvent(HostServer.TouchEvent("swipe", start.x, start.y, e2.x, e2.y, viewWidth, viewHeight))
                 return true
             }
         })
@@ -125,10 +123,13 @@ class ClientActivity : AppCompatActivity() {
         }
     }
 
-    // Системні кнопки (Back / Home / Recents) через volume або окремі UI кнопки
-    // Поки обробляємо Back як кнопку назад на хості
+    @Suppress("DEPRECATION")
     override fun onBackPressed() {
-        sendEvent(HostServer.TouchEvent(type = "back"))
+        if (binding.btnDisconnect.visibility == View.VISIBLE) {
+            sendEvent(HostServer.TouchEvent(type = "back"))
+        } else {
+            super.onBackPressed()
+        }
     }
 
     private fun sendEvent(event: HostServer.TouchEvent) {

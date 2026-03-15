@@ -9,7 +9,6 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
-import com.remotelink.NetworkConfig
 import com.remotelink.databinding.ActivityHostBinding
 import com.remotelink.service.AccessibilityControlService
 import com.remotelink.service.HostServer
@@ -31,13 +30,14 @@ class HostActivity : AppCompatActivity() {
         binding = ActivityHostBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Показуємо код
+        binding.tvPairingCode.text = hostServer.pairingCode
         showIpAddress()
         checkAccessibilityService()
         startHostServer()
         requestScreenCapture()
 
         binding.btnStop.setOnClickListener { finish() }
-
         binding.btnEnableAccessibility.setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
@@ -49,11 +49,8 @@ class HostActivity : AppCompatActivity() {
     }
 
     private fun checkAccessibilityService() {
-        if (AccessibilityControlService.isEnabled()) {
-            binding.cardAccessibility.visibility = View.GONE
-        } else {
-            binding.cardAccessibility.visibility = View.VISIBLE
-        }
+        binding.cardAccessibility.visibility =
+            if (AccessibilityControlService.isEnabled()) View.GONE else View.VISIBLE
     }
 
     private fun showIpAddress() {
@@ -64,7 +61,6 @@ class HostActivity : AppCompatActivity() {
             ip and 0xff, ip shr 8 and 0xff, ip shr 16 and 0xff, ip shr 24 and 0xff
         )
         binding.tvIpAddress.text = "IP: $ipStr"
-        binding.tvPort.text = "Порт: ${NetworkConfig.WS_PORT}"
     }
 
     private fun startHostServer() {
@@ -81,17 +77,15 @@ class HostActivity : AppCompatActivity() {
         hostServer.onTouchEvent = { event ->
             val accessibility = AccessibilityControlService.instance
             if (accessibility != null) {
-                val scaleX = resources.displayMetrics.widthPixels.toFloat() / event.screenWidth
-                val scaleY = resources.displayMetrics.heightPixels.toFloat() / event.screenHeight
-                val rx = event.x * scaleX
-                val ry = event.y * scaleY
-                val rx2 = event.x2 * scaleX
-                val ry2 = event.y2 * scaleY
+                val scaleX = if (event.screenWidth > 0)
+                    resources.displayMetrics.widthPixels.toFloat() / event.screenWidth else 1f
+                val scaleY = if (event.screenHeight > 0)
+                    resources.displayMetrics.heightPixels.toFloat() / event.screenHeight else 1f
 
                 when (event.type) {
-                    "tap"       -> accessibility.performTap(rx, ry)
-                    "swipe"     -> accessibility.performSwipe(rx, ry, rx2, ry2)
-                    "longpress" -> accessibility.performLongPress(rx, ry)
+                    "tap"       -> accessibility.performTap(event.x * scaleX, event.y * scaleY)
+                    "swipe"     -> accessibility.performSwipe(event.x * scaleX, event.y * scaleY, event.x2 * scaleX, event.y2 * scaleY)
+                    "longpress" -> accessibility.performLongPress(event.x * scaleX, event.y * scaleY)
                     "back"      -> accessibility.performBack()
                     "home"      -> accessibility.performHome()
                     "recents"   -> accessibility.performRecents()
@@ -106,6 +100,7 @@ class HostActivity : AppCompatActivity() {
         startActivityForResult(projectionManager.createScreenCaptureIntent(), REQUEST_MEDIA_PROJECTION)
     }
 
+    @Suppress("DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_MEDIA_PROJECTION && resultCode == Activity.RESULT_OK && data != null) {
@@ -116,7 +111,6 @@ class HostActivity : AppCompatActivity() {
             }
             startForegroundService(serviceIntent)
 
-            // Як тільки сервіс запуститься — підключаємо колбек
             scope.launch {
                 delay(500)
                 ScreenCaptureService.instance?.onFrameReady = { frame ->
@@ -132,8 +126,6 @@ class HostActivity : AppCompatActivity() {
         super.onDestroy()
         scope.cancel()
         hostServer.stop()
-        ScreenCaptureService.instance?.let {
-            stopService(Intent(this, ScreenCaptureService::class.java))
-        }
+        stopService(Intent(this, ScreenCaptureService::class.java))
     }
 }
