@@ -15,7 +15,9 @@ import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
@@ -46,7 +48,6 @@ class ScreenCaptureService : Service() {
         super.onCreate()
         instance = this
         createNotificationChannel()
-        // Запускаємо foreground одразу в onCreate — обов'язково для Android 14+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 NetworkConfig.NOTIFICATION_ID,
@@ -73,6 +74,7 @@ class ScreenCaptureService : Service() {
     private fun startCapture(resultCode: Int, data: Intent) {
         val metrics = DisplayMetrics()
         val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        @Suppress("DEPRECATION")
         wm.defaultDisplay.getRealMetrics(metrics)
 
         val width = metrics.widthPixels
@@ -80,11 +82,23 @@ class ScreenCaptureService : Service() {
         val dpi = metrics.densityDpi
 
         val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        mediaProjection = projectionManager.getMediaProjection(resultCode, data)
+        val projection = projectionManager.getMediaProjection(resultCode, data)
+
+        // Android 14+ вимагає registerCallback перед createVirtualDisplay
+        projection.registerCallback(object : MediaProjection.Callback() {
+            override fun onStop() {
+                virtualDisplay?.release()
+                virtualDisplay = null
+                serviceScope.cancel()
+                stopSelf()
+            }
+        }, Handler(Looper.getMainLooper()))
+
+        mediaProjection = projection
 
         imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
 
-        virtualDisplay = mediaProjection?.createVirtualDisplay(
+        virtualDisplay = projection.createVirtualDisplay(
             "RemoteLinkCapture",
             width, height, dpi,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
