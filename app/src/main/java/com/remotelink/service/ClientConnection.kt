@@ -24,54 +24,64 @@ class ClientConnection {
     var onWrongCode: (() -> Unit)? = null
     var onFrame: ((ByteArray) -> Unit)? = null
     var onSearching: (() -> Unit)? = null
+    var onUdpTimeout: (() -> Unit)? = null  // UDP не знайшов — просимо IP вручну
 
-    // Підключення з ручним введенням коду
+    // Підключення через UDP auto-discovery
     fun connectWithCode(code: String) {
         scope.launch {
             onSearching?.invoke()
-            val result = discoverHost(code)
-            if (result == null) {
-                onDisconnected?.invoke()
+            val hostIp = discoverHost(code)
+            if (hostIp == null) {
+                // UDP не спрацював — просимо IP вручну
+                onUdpTimeout?.invoke()
                 return@launch
             }
-            connect(result, code)
+            connectToIp(hostIp, code)
         }
     }
 
-    // UDP discovery — шукає beacon з потрібним кодом
+    // Підключення з ручним IP (якщо UDP не знайшов)
+    fun connectWithIp(ip: String, code: String) {
+        scope.launch {
+            onSearching?.invoke()
+            connectToIp(ip, code)
+        }
+    }
+
     private suspend fun discoverHost(code: String): String? {
         return withTimeoutOrNull(15_000L) {
             var found: String? = null
-            val socket = DatagramSocket(NetworkConfig.UDP_PORT)
+            val socket = try {
+                DatagramSocket(NetworkConfig.UDP_PORT)
+            } catch (_: Exception) { return@withTimeoutOrNull null }
             socket.broadcast = true
+            socket.soTimeout = 2000
             val buffer = ByteArray(256)
             val packet = DatagramPacket(buffer, buffer.size)
             try {
                 while (found == null) {
-                    socket.receive(packet)
-                    val msg = String(packet.data, 0, packet.length)
-                    // beacon формат: "REMOTELINK:123456"
-                    if (msg == "${NetworkConfig.UDP_BROADCAST_PREFIX}$code") {
-                        found = packet.address.hostAddress
-                    }
+                    try {
+                        socket.receive(packet)
+                        val msg = String(packet.data, 0, packet.length)
+                        if (msg == "${NetworkConfig.UDP_BROADCAST_PREFIX}$code") {
+                            found = packet.address.hostAddress
+                        }
+                    } catch (_: Exception) { /* timeout — спробуємо ще */ }
                 }
                 found
-            } catch (_: Exception) {
-                null
             } finally {
                 socket.close()
             }
         }
     }
 
-    private fun connect(ip: String, code: String) {
+    private fun connectToIp(ip: String, code: String) {
         val request = Request.Builder()
             .url("ws://$ip:${NetworkConfig.WS_PORT}")
             .build()
 
         webSocket = okClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(ws: WebSocket, response: Response) {
-                // Одразу надсилаємо код для верифікації
                 ws.send(code)
             }
 
@@ -86,6 +96,7 @@ class ClientConnection {
             }
 
             override fun onMessage(ws: WebSocket, bytes: ByteString) {
+                // Декодуємо в IO потоці — не чіпаємо Main
                 onFrame?.invoke(bytes.toByteArray())
             }
 
@@ -100,8 +111,7 @@ class ClientConnection {
     }
 
     fun sendTouchEvent(event: HostServer.TouchEvent) {
-        val json = gson.toJson(event)
-        webSocket?.send(json)
+        webSocket?.send(gson.toJson(event))
     }
 
     fun disconnect() {

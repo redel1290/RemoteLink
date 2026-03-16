@@ -18,95 +18,177 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Введення коду (початковий стан) -->
-    <LinearLayout
+    <!-- Введення коду + IP -->
+    <ScrollView
         android:id="@+id/layoutCodeInput"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
         android:background="#121220"
-        android:gravity="center"
-        android:padding="32dp"
         android:visibility="visible"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="📱  Підключення"
-            android:textColor="#FFFFFF"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Введи 6-значний код з хоста"
-            android:textColor="#88FFFFFF"
-            android:textSize="14sp"
-            android:gravity="center"
-            android:layout_marginBottom="32dp" />
-
-        <com.google.android.material.textfield.TextInputLayout
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Код (6 цифр)"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-            android:layout_marginBottom="16dp">
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="32dp"
+            android:paddingTop="64dp">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etCode"
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📱  Підключення"
+                android:textColor="#FFFFFF"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Введи 6-значний код з хоста"
+                android:textColor="#88FFFFFF"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:layout_marginBottom="32dp" />
+
+            <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="number"
-                android:maxLength="6"
+                android:hint="Код (6 цифр)"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_marginBottom="16dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etCode"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:maxLength="6"
+                    android:textColor="#FFFFFF"
+                    android:textSize="32sp"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.3" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <Button
+                android:id="@+id/btnConnect"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="Підключитись"
                 android:textColor="#FFFFFF"
-                android:textSize="32sp"
+                android:backgroundTint="#6C63FF"
+                android:stateListAnimator="@null"
+                style="@style/Widget.MaterialComponents.Button"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/tvCodeError"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="#FF5555"
+                android:textSize="14sp"
                 android:gravity="center"
-                android:fontFamily="monospace"
-                android:letterSpacing="0.3" />
+                android:layout_marginBottom="32dp" />
 
-        </com.google.android.material.textfield.TextInputLayout>
+            <!-- Розділювач -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#33FFFFFF"
+                android:layout_marginBottom="24dp" />
 
-        <Button
-            android:id="@+id/btnConnect"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:text="Підключитись"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#6C63FF"
-            android:stateListAnimator="@null"
-            style="@style/Widget.MaterialComponents.Button" />
+            <!-- Ручний IP (прихований за замовчуванням) -->
+            <LinearLayout
+                android:id="@+id/layoutManualIp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
 
-        <TextView
-            android:id="@+id/tvCodeError"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text=""
-            android:textColor="#FF5555"
-            android:textSize="14sp"
-            android:gravity="center"
-            android:layout_marginTop="12dp" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📡 Ввести IP вручну"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="4dp" />
 
-    </LinearLayout>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="UDP не знайшов хост. Введи IP хоста з екрану хоста."
+                    android:textColor="#88FFFFFF"
+                    android:textSize="13sp"
+                    android:layout_marginBottom="16dp" />
 
-    <!-- Статус пошуку/помилки (поверх layoutCodeInput) -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="IP адреса (напр. 192.168.43.1)"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_marginBottom="16dp">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etIp"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp"
+                        android:gravity="center"
+                        android:fontFamily="monospace" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <Button
+                    android:id="@+id/btnConnectIp"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:text="Підключитись по IP"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#2A8C5A"
+                    android:stateListAnimator="@null"
+                    style="@style/Widget.MaterialComponents.Button" />
+
+            </LinearLayout>
+
+            <!-- Кнопка показати ручний IP -->
+            <Button
+                android:id="@+id/btnShowManualIp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ввести IP вручну"
+                android:textColor="#88FFFFFF"
+                android:backgroundTint="@android:color/transparent"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:visibility="visible" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Статус пошуку -->
     <LinearLayout
         android:id="@+id/layoutStatus"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:orientation="vertical"
-        android:background="#CC000000"
-        android:padding="16dp"
+        android:background="#EE121220"
         android:gravity="center"
+        android:padding="32dp"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
 
         <TextView
             android:id="@+id/tvStatus"
@@ -114,8 +196,9 @@
             android:layout_height="wrap_content"
             android:text="🔍 Пошук хоста…"
             android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:gravity="center" />
+            android:textSize="18sp"
+            android:gravity="center"
+            android:layout_marginBottom="8dp" />
 
         <TextView
             android:id="@+id/tvStatusDetail"
@@ -123,13 +206,12 @@
             android:layout_height="wrap_content"
             android:text=""
             android:textColor="#88FFFFFF"
-            android:textSize="13sp"
-            android:gravity="center"
-            android:layout_marginTop="4dp" />
+            android:textSize="14sp"
+            android:gravity="center" />
 
     </LinearLayout>
 
-    <!-- Кнопка відключення (коли підключено) -->
+    <!-- Кнопка відключення -->
     <Button
         android:id="@+id/btnDisconnect"
         android:layout_width="wrap_content"

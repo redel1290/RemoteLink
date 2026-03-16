@@ -38,7 +38,6 @@ class ScreenCaptureService : Service() {
     companion object {
         var instance: ScreenCaptureService? = null
             private set
-
         const val ACTION_START = "ACTION_START"
         const val EXTRA_RESULT_CODE = "RESULT_CODE"
         const val EXTRA_RESULT_DATA = "RESULT_DATA"
@@ -64,27 +63,25 @@ class ScreenCaptureService : Service() {
             val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, -1)
             @Suppress("DEPRECATION")
             val resultData = intent.getParcelableExtra<Intent>(EXTRA_RESULT_DATA)
-            if (resultData != null) {
-                startCapture(resultCode, resultData)
-            }
+            if (resultData != null) startCapture(resultCode, resultData)
         }
         return START_STICKY
     }
 
     private fun startCapture(resultCode: Int, data: Intent) {
-        val metrics = DisplayMetrics()
         val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val metrics = DisplayMetrics()
         @Suppress("DEPRECATION")
         wm.defaultDisplay.getRealMetrics(metrics)
 
-        val width = metrics.widthPixels
-        val height = metrics.heightPixels
-        val dpi = metrics.densityDpi
+        // Зменшуємо роздільну здатність вдвічі — менше навантаження на мережу і пам'ять
+        val width = metrics.widthPixels / 2
+        val height = metrics.heightPixels / 2
+        val dpi = metrics.densityDpi / 2
 
         val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         val projection = projectionManager.getMediaProjection(resultCode, data)
 
-        // Android 14+ вимагає registerCallback перед createVirtualDisplay
         projection.registerCallback(object : MediaProjection.Callback() {
             override fun onStop() {
                 virtualDisplay?.release()
@@ -95,7 +92,6 @@ class ScreenCaptureService : Service() {
         }, Handler(Looper.getMainLooper()))
 
         mediaProjection = projection
-
         imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
 
         virtualDisplay = projection.createVirtualDisplay(
@@ -122,21 +118,22 @@ class ScreenCaptureService : Service() {
             val rowStride = planes[0].rowStride
             val rowPadding = rowStride - pixelStride * image.width
 
-            val bitmap = Bitmap.createBitmap(
+            val fullBitmap = Bitmap.createBitmap(
                 image.width + rowPadding / pixelStride,
                 image.height,
                 Bitmap.Config.ARGB_8888
             )
-            bitmap.copyPixelsFromBuffer(buffer)
+            fullBitmap.copyPixelsFromBuffer(buffer)
 
-            val croppedBitmap = Bitmap.createBitmap(bitmap, 0, 0, image.width, image.height)
-            bitmap.recycle()
+            val cropped = Bitmap.createBitmap(fullBitmap, 0, 0, image.width, image.height)
+            fullBitmap.recycle()
 
             val stream = ByteArrayOutputStream()
-            croppedBitmap.compress(Bitmap.CompressFormat.JPEG, NetworkConfig.JPEG_QUALITY, stream)
-            croppedBitmap.recycle()
+            cropped.compress(Bitmap.CompressFormat.JPEG, NetworkConfig.JPEG_QUALITY, stream)
+            cropped.recycle()
 
             onFrameReady?.invoke(stream.toByteArray())
+        } catch (_: Exception) {
         } finally {
             image.close()
         }
@@ -159,8 +156,7 @@ class ScreenCaptureService : Service() {
             getString(R.string.notification_channel),
             NotificationManager.IMPORTANCE_LOW
         )
-        val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(channel)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
     private fun buildNotification(): Notification {

@@ -1,5 +1,6 @@
 package com.remotelink.ui.client
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.view.GestureDetector
@@ -23,6 +24,11 @@ class ClientActivity : AppCompatActivity() {
     private var viewWidth = 0
     private var viewHeight = 0
 
+    // Опції декодування — обмежуємо розмір bitmap щоб не вийти з пам'яті
+    private val bitmapOptions = BitmapFactory.Options().apply {
+        inPreferredConfig = Bitmap.Config.RGB_565  // вдвічі менше пам'яті ніж ARGB_8888
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityClientBinding.inflate(layoutInflater)
@@ -30,32 +36,56 @@ class ClientActivity : AppCompatActivity() {
 
         setupGestures()
         setupConnection()
+        setupButtons()
 
+        binding.ivScreen.post {
+            viewWidth = binding.ivScreen.width
+            viewHeight = binding.ivScreen.height
+        }
+    }
+
+    private fun setupButtons() {
         binding.btnConnect.setOnClickListener {
             val code = binding.etCode.text.toString().trim()
             if (code.length != 6) {
                 binding.tvCodeError.text = "Введи рівно 6 цифр"
                 return@setOnClickListener
             }
-            binding.tvCodeError.text = ""
-            // Ховаємо клавіатуру
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(binding.etCode.windowToken, 0)
-            // Показуємо статус пошуку
-            binding.layoutStatus.visibility = View.VISIBLE
-            binding.tvStatus.text = "🔍 Пошук хоста з кодом $code…"
-            binding.tvStatusDetail.text = "Переконайся що хост активний"
-            binding.btnConnect.isEnabled = false
-
+            startConnecting(code)
             connection.connectWithCode(code)
         }
 
-        binding.btnDisconnect.setOnClickListener { finish() }
-
-        binding.ivScreen.post {
-            viewWidth = binding.ivScreen.width
-            viewHeight = binding.ivScreen.height
+        binding.btnConnectIp.setOnClickListener {
+            val code = binding.etCode.text.toString().trim()
+            val ip = binding.etIp.text.toString().trim()
+            if (code.length != 6) {
+                binding.tvCodeError.text = "Спочатку введи 6-значний код"
+                return@setOnClickListener
+            }
+            if (ip.isEmpty()) {
+                binding.tvCodeError.text = "Введи IP адресу"
+                return@setOnClickListener
+            }
+            startConnecting(code)
+            connection.connectWithIp(ip, code)
         }
+
+        binding.btnShowManualIp.setOnClickListener {
+            binding.layoutManualIp.visibility = View.VISIBLE
+            binding.btnShowManualIp.visibility = View.GONE
+        }
+
+        binding.btnDisconnect.setOnClickListener { finish() }
+    }
+
+    private fun startConnecting(code: String) {
+        binding.tvCodeError.text = ""
+        hideKeyboard()
+        binding.layoutStatus.visibility = View.VISIBLE
+        binding.tvStatus.text = "🔍 Шукаємо хост з кодом $code…"
+        binding.tvStatusDetail.text = "Очікуємо до 15 секунд"
+        binding.btnConnect.isEnabled = false
+        binding.btnConnectIp.isEnabled = false
     }
 
     private fun setupConnection() {
@@ -67,37 +97,51 @@ class ClientActivity : AppCompatActivity() {
             }
         }
 
+        connection.onUdpTimeout = {
+            mainScope.launch {
+                binding.layoutStatus.visibility = View.GONE
+                binding.layoutManualIp.visibility = View.VISIBLE
+                binding.btnShowManualIp.visibility = View.GONE
+                binding.btnConnect.isEnabled = true
+                binding.btnConnectIp.isEnabled = true
+                binding.tvCodeError.text = "⚠️ Хост не знайдено автоматично.\nВведи IP вручну (видно на екрані хоста)"
+            }
+        }
+
         connection.onWrongCode = {
             mainScope.launch {
                 binding.layoutStatus.visibility = View.GONE
                 binding.tvCodeError.text = "❌ Невірний код, спробуй ще раз"
                 binding.btnConnect.isEnabled = true
+                binding.btnConnectIp.isEnabled = true
             }
         }
 
         connection.onDisconnected = {
             mainScope.launch {
                 if (binding.layoutCodeInput.visibility == View.GONE) {
-                    // Якщо вже були підключені — показуємо повідомлення
                     binding.layoutCodeInput.visibility = View.VISIBLE
-                    binding.tvCodeError.text = "❌ З'єднання втрачено"
-                    binding.btnConnect.isEnabled = true
                     binding.btnDisconnect.visibility = View.GONE
+                    binding.tvCodeError.text = "❌ З'єднання втрачено"
                 } else {
                     binding.layoutStatus.visibility = View.GONE
-                    binding.tvCodeError.text = "❌ Хост не знайдено. Перевір код і мережу"
-                    binding.btnConnect.isEnabled = true
+                    binding.tvCodeError.text = "❌ Не вдалось підключитись"
                 }
+                binding.btnConnect.isEnabled = true
+                binding.btnConnectIp.isEnabled = true
             }
         }
 
         connection.onFrame = { jpegBytes ->
-            val bitmap = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
-            if (bitmap != null) {
-                mainScope.launch {
-                    binding.ivScreen.setImageBitmap(bitmap)
+            // Декодуємо в IO потоці
+            try {
+                val bitmap = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size, bitmapOptions)
+                if (bitmap != null) {
+                    mainScope.launch {
+                        binding.ivScreen.setImageBitmap(bitmap)
+                    }
                 }
-            }
+            } catch (_: Exception) {}
         }
     }
 
@@ -136,6 +180,11 @@ class ClientActivity : AppCompatActivity() {
         mainScope.launch(Dispatchers.IO) {
             connection.sendTouchEvent(event)
         }
+    }
+
+    private fun hideKeyboard() {
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(binding.etCode.windowToken, 0)
     }
 
     override fun onDestroy() {
